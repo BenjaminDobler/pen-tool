@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pent Tool - Import SVG Example</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #fff;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #2d2d2d;
+      border-radius: 8px;
+    }
+
+    .info p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .toolbar {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar button {
+      padding: 8px 16px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .toolbar button:hover {
+      background: #0052a3;
+    }
+
+    .toolbar button.active {
+      background: #00aa00;
+    }
+
+    .container {
+      position: relative;
+      background: #2d2d2d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    svg {
+      display: block;
+      border: 1px solid #444;
+      background: white;
+    }
+
+    .example-svg {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Import Existing SVG Paths</h1>
+  
+  <div class="info">
+    <p><strong>Instructions:</strong></p>
+    <p>• The paths in the SVG are automatically imported on load</p>
+    <p>• Click "Load Example SVG" to import additional paths</p>
+    <p>• <strong>View Mode</strong>: See paths without any interactive elements</p>
+    <p>• <strong>Edit Mode</strong>: Drag anchor points and handles, double-click to add points</p>
+    <p>• <strong>Pen Tool</strong>: Draw new paths</p>
+  </div>
+
+  <div class="toolbar">
+    <button id="loadBtn">Load Example SVG</button>
+    <button id="viewBtn">View Mode</button>
+    <button id="penBtn">Pen Tool</button>
+    <button id="editBtn" class="active">Edit Mode</button>
+    <button id="clearBtn">Clear All</button>
+  </div>
+
+  <div class="container">
+    <svg id="canvas" width="800" height="600">
+      <!-- These paths will be automatically imported and made editable -->
+      <path 
+        d="M 100 100 C 150 50, 250 50, 300 100 S 450 150, 500 100" 
+        stroke="#ff6b6b" 
+        stroke-width="3" 
+        fill="none"
+      />
+      
+      <path 
+        d="M 400 250 L 450 350 L 560 360 L 475 430 L 500 540 L 400 480 L 300 540 L 325 430 L 240 360 L 350 350 Z" 
+        stroke="#4ecdc4" 
+        stroke-width="3" 
+        fill="rgba(78, 205, 196, 0.2)"
+      />
+      
+      <path 
+        d="M 150 400 C 150 360, 120 340, 90 340 C 60 340, 30 360, 30 400 C 30 450, 150 520, 150 520 C 150 520, 270 450, 270 400 C 270 360, 240 340, 210 340 C 180 340, 150 360, 150 400 Z" 
+        stroke="#ff6b6b" 
+        stroke-width="2" 
+        fill="rgba(255, 107, 107, 0.3)"
+      />
+    </svg>
+  </div>
+
+  <!-- Hidden SVG with example paths to import -->
+  <svg class="example-svg" id="exampleSVG" viewBox="0 0 800 600">
+    <!-- Simple curved path -->
+    <path 
+      d="M 100 100 C 150 50, 250 50, 300 100 S 450 150, 500 100" 
+      stroke="#ff6b6b" 
+      stroke-width="3" 
+      fill="none"
+    />
+    
+    <!-- Star shape (closed path) -->
+    <path 
+      d="M 400 250 L 450 350 L 560 360 L 475 430 L 500 540 L 400 480 L 300 540 L 325 430 L 240 360 L 350 350 Z" 
+      stroke="#4ecdc4" 
+      stroke-width="3" 
+      fill="rgba(78, 205, 196, 0.2)"
+    />
+    
+    <!-- Heart shape -->
+    <path 
+      d="M 150 400 C 150 360, 120 340, 90 340 C 60 340, 30 360, 30 400 C 30 450, 150 520, 150 520 C 150 520, 270 450, 270 400 C 270 360, 240 340, 210 340 C 180 340, 150 360, 150 400 Z" 
+      stroke="#ff6b6b" 
+      stroke-width="2" 
+      fill="rgba(255, 107, 107, 0.3)"
+    />
+  </svg>
+
+  <script type="module">
+    import { PathManager, PenTool, EditMode, SvgPathRenderer } from '../dist/index.esm.js';
+
+    const svg = document.getElementById('canvas');
+    const pathManager = new PathManager();
+    
+    // Renderer automatically imports existing paths from the SVG
+    const renderer = new SvgPathRenderer(svg, pathManager);
+
+    let penTool = new PenTool(svg, pathManager, renderer);
+    let editMode = new EditMode(svg, pathManager, renderer, {
+      hoverDistance: 10
+    });
+
+    let currentMode = 'edit';
+    penTool.disable();
+
+    // Toolbar buttons
+    const loadBtn = document.getElementById('loadBtn');
+    const viewBtn = document.getElementById('viewBtn');
+    const penBtn = document.getElementById('penBtn');
+    const editBtn = document.getElementById('editBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    loadBtn.addEventListener('click', () => {
+      // Import additional paths from the hidden example SVG
+      const exampleSVG = document.getElementById('exampleSVG');
+      const importedPaths = pathManager.importFromSVGElement(exampleSVG);
+      console.log(`Imported ${importedPaths.length} additional paths from example SVG`);
+      
+      // Re-render based on current mode
+      if (currentMode === 'view') {
+        renderer.renderViewOnly(pathManager);
+      } else {
+        renderer.renderPaths(pathManager);
+      }
+    });
+
+    viewBtn.addEventListener('click', () => {
+      if (currentMode === 'view') return;
+      currentMode = 'view';
+      penTool.disable();
+      editMode.disable();
+      renderer.renderViewOnly(pathManager);
+      viewBtn.classList.add('active');
+      penBtn.classList.remove('active');
+      editBtn.classList.remove('active');
+    });
+
+    penBtn.addEventListener('click', () => {
+      if (currentMode === 'pen') return;
+      currentMode = 'pen';
+      editMode.disable();
+      penTool.enable();
+      renderer.renderPaths(pathManager);
+      viewBtn.classList.remove('active');
+      penBtn.classList.add('active');
+      editBtn.classList.remove('active');
+    });
+
+    editBtn.addEventListener('click', () => {
+      if (currentMode === 'edit') return;
+      currentMode = 'edit';
+      penTool.disable();
+      editMode.enable();
+      renderer.renderPaths(pathManager);
+      viewBtn.classList.remove('active');
+      editBtn.classList.add('active');
+      penBtn.classList.remove('active');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      const pathIds = Object.keys(pathManager.paths);
+      pathIds.forEach(id => pathManager.removePath(id));
+      renderer.renderPaths(pathManager);
+    });
+  </script>
+</body>
+</html>

@@ -20,6 +20,8 @@ export interface RenderOptions {
   previewColor?: string;
   /** Show handles for all points or only selected */
   showAllHandles?: boolean;
+  /** Automatically import existing path data from the provided element */
+  autoImport?: boolean;
 }
 
 /**
@@ -76,6 +78,17 @@ export interface IPathRenderer {
    * Clear preview elements only
    */
   clearPreview(): void;
+
+  /**
+   * Clear all interactive elements (anchor points, handles, preview)
+   * Useful for view-only mode
+   */
+  clearInteractive(): void;
+
+  /**
+   * Render in view-only mode (paths only, no interactive elements)
+   */
+  renderViewOnly(pathManager: PathManager): void;
 
   /**
    * Set render options

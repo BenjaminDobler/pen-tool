@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Mode Demo - Pent Tool</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #fff;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #2d2d2d;
+      border-radius: 8px;
+    }
+
+    .info p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .info code {
+      background: #1e1e1e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #4ec9b0;
+    }
+
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+    }
+
+    svg, canvas {
+      display: block;
+      border: 1px solid #444;
+      background: white;
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>View Mode Demo</h1>
+  
+  <div class="info">
+    <p><strong>View Mode</strong> renders paths without any interactive elements:</p>
+    <p>• No anchor points visible</p>
+    <p>• No Bezier handles</p>
+    <p>• No preview indicators</p>
+    <p>• Just clean path rendering - perfect for displaying final artwork</p>
+    <p></p>
+    <p><strong>Usage:</strong> <code>renderer.renderViewOnly(pathManager)</code></p>
+  </div>
+
+  <div class="container">
+    <div class="canvas-wrapper">
+      <h3>With Interactive Elements (Edit Mode)</h3>
+      <svg id="editCanvas" width="400" height="300" viewBox="0 0 400 300">
+        <path 
+          d="M 50 150 C 50 80, 150 80, 150 150 S 250 220, 350 150" 
+          stroke="#0066cc" 
+          stroke-width="3" 
+          fill="none"
+        />
+        
+        <path 
+          d="M 100 50 L 200 50 L 250 100 L 200 150 L 100 150 L 50 100 Z" 
+          stroke="#ff6b6b" 
+          stroke-width="2" 
+          fill="rgba(255, 107, 107, 0.2)"
+        />
+      </svg>
+    </div>
+
+    <div class="canvas-wrapper">
+      <h3>View Mode (Clean Display)</h3>
+      <svg id="viewCanvas" width="400" height="300" viewBox="0 0 400 300">
+        <path 
+          d="M 50 150 C 50 80, 150 80, 150 150 S 250 220, 350 150" 
+          stroke="#0066cc" 
+          stroke-width="3" 
+          fill="none"
+        />
+        
+        <path 
+          d="M 100 50 L 200 50 L 250 100 L 200 150 L 100 150 L 50 100 Z" 
+          stroke="#ff6b6b" 
+          stroke-width="2" 
+          fill="rgba(255, 107, 107, 0.2)"
+        />
+      </svg>
+    </div>
+  </div>
+
+  <script type="module">
+    import { PathManager, EditMode, SvgPathRenderer } from '../dist/index.esm.js';
+
+    // Setup for edit mode canvas (left side)
+    const editSvg = document.getElementById('editCanvas');
+    const editPathManager = new PathManager();
+    const editRenderer = new SvgPathRenderer(editSvg, editPathManager);
+    
+    const editMode = new EditMode(editSvg, editPathManager, editRenderer, {
+      hoverDistance: 10
+    });
+
+    // Setup for view mode canvas (right side)
+    const viewSvg = document.getElementById('viewCanvas');
+    const viewPathManager = new PathManager();
+    const viewRenderer = new SvgPathRenderer(viewSvg, viewPathManager);
+    
+    // Render in view-only mode - no anchor points, handles, or interactive elements
+    viewRenderer.renderViewOnly(viewPathManager);
+
+    console.log(`Edit mode: ${Object.keys(editPathManager.paths).length} paths (interactive)`);
+    console.log(`View mode: ${Object.keys(viewPathManager.paths).length} paths (view-only)`);
+  </script>
+</body>
+</html>

@@ -364,6 +364,338 @@ export class PathManager {
     };
   }
 
+  /**
+   * Import a path from SVG path data (d attribute)
+   */
+  importFromSVG(pathData: string, options: {
+    stroke?: string;
+    strokeWidth?: number;
+    fill?: string;
+  } = {}): VectorPath | null {
+    try {
+      const path = this.createPath();
+      
+      // Apply styling options
+      if (options.stroke) path.stroke = options.stroke;
+      if (options.strokeWidth) path.strokeWidth = options.strokeWidth;
+      if (options.fill) path.fill = options.fill;
+
+      const commands = this.parseSVGPath(pathData);
+      let currentPoint: Point = { x: 0, y: 0 };
+      let lastControlPoint: Point | null = null;
+
+      for (let i = 0; i < commands.length; i++) {
+        const cmd = commands[i];
+
+        switch (cmd.type) {
+          case 'M': // Move to (absolute)
+            currentPoint = { x: cmd.x!, y: cmd.y! };
+            if (path.anchorPoints.length === 0) {
+              this.addAnchorPoint(path, currentPoint);
+            }
+            break;
+
+          case 'm': // Move to (relative)
+            currentPoint = { x: currentPoint.x + cmd.x!, y: currentPoint.y + cmd.y! };
+            if (path.anchorPoints.length === 0) {
+              this.addAnchorPoint(path, currentPoint);
+            }
+            break;
+
+          case 'L': // Line to (absolute)
+            currentPoint = { x: cmd.x!, y: cmd.y! };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'l': // Line to (relative)
+            currentPoint = { x: currentPoint.x + cmd.x!, y: currentPoint.y + cmd.y! };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'H': // Horizontal line (absolute)
+            currentPoint = { x: cmd.x!, y: currentPoint.y };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'h': // Horizontal line (relative)
+            currentPoint = { x: currentPoint.x + cmd.x!, y: currentPoint.y };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'V': // Vertical line (absolute)
+            currentPoint = { x: currentPoint.x, y: cmd.y! };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'v': // Vertical line (relative)
+            currentPoint = { x: currentPoint.x, y: currentPoint.y + cmd.y! };
+            this.addAnchorPoint(path, currentPoint);
+            lastControlPoint = null;
+            break;
+
+          case 'C': // Cubic Bezier (absolute)
+            {
+              const cp1 = { x: cmd.x1!, y: cmd.y1! };
+              const cp2 = { x: cmd.x2!, y: cmd.y2! };
+              const endPoint = { x: cmd.x!, y: cmd.y! };
+
+              // Set handleOut for previous point
+              const prevPoint = path.anchorPoints[path.anchorPoints.length - 1];
+              if (prevPoint) {
+                prevPoint.handleOut = {
+                  position: { x: cp1.x - prevPoint.position.x, y: cp1.y - prevPoint.position.y },
+                  visible: true
+                };
+              }
+
+              // Add new point with handleIn
+              const newPoint = this.addAnchorPoint(path, endPoint);
+              newPoint.handleIn = {
+                position: { x: cp2.x - endPoint.x, y: cp2.y - endPoint.y },
+                visible: true
+              };
+
+              currentPoint = endPoint;
+              lastControlPoint = cp2;
+            }
+            break;
+
+          case 'c': // Cubic Bezier (relative)
+            {
+              const cp1 = { x: currentPoint.x + cmd.x1!, y: currentPoint.y + cmd.y1! };
+              const cp2 = { x: currentPoint.x + cmd.x2!, y: currentPoint.y + cmd.y2! };
+              const endPoint = { x: currentPoint.x + cmd.x!, y: currentPoint.y + cmd.y! };
+
+              // Set handleOut for previous point
+              const prevPoint = path.anchorPoints[path.anchorPoints.length - 1];
+              if (prevPoint) {
+                prevPoint.handleOut = {
+                  position: { x: cp1.x - prevPoint.position.x, y: cp1.y - prevPoint.position.y },
+                  visible: true
+                };
+              }
+
+              // Add new point with handleIn
+              const newPoint = this.addAnchorPoint(path, endPoint);
+              newPoint.handleIn = {
+                position: { x: cp2.x - endPoint.x, y: cp2.y - endPoint.y },
+                visible: true
+              };
+
+              currentPoint = endPoint;
+              lastControlPoint = cp2;
+            }
+            break;
+
+          case 'S': // Smooth cubic Bezier (absolute)
+          case 's': // Smooth cubic Bezier (relative)
+            {
+              // S command reflects the previous control point
+              const prevPoint = path.anchorPoints[path.anchorPoints.length - 1];
+              let cp1: Point;
+              
+              if (lastControlPoint && prevPoint) {
+                // Reflect last control point
+                cp1 = {
+                  x: 2 * prevPoint.position.x - lastControlPoint.x,
+                  y: 2 * prevPoint.position.y - lastControlPoint.y
+                };
+              } else {
+                cp1 = currentPoint;
+              }
+
+              const isRelative = cmd.type === 's';
+              const cp2 = isRelative 
+                ? { x: currentPoint.x + cmd.x2!, y: currentPoint.y + cmd.y2! }
+                : { x: cmd.x2!, y: cmd.y2! };
+              const endPoint = isRelative
+                ? { x: currentPoint.x + cmd.x!, y: currentPoint.y + cmd.y! }
+                : { x: cmd.x!, y: cmd.y! };
+
+              // Set handleOut for previous point
+              if (prevPoint) {
+                prevPoint.handleOut = {
+                  position: { x: cp1.x - prevPoint.position.x, y: cp1.y - prevPoint.position.y },
+                  visible: true
+                };
+              }
+
+              // Add new point with handleIn
+              const newPoint = this.addAnchorPoint(path, endPoint);
+              newPoint.handleIn = {
+                position: { x: cp2.x - endPoint.x, y: cp2.y - endPoint.y },
+                visible: true
+              };
+
+              currentPoint = endPoint;
+              lastControlPoint = cp2;
+            }
+            break;
+
+          case 'Z':
+          case 'z':
+            // Close path
+            path.closed = true;
+            break;
+        }
+      }
+
+      return path;
+    } catch (error) {
+      console.error('Failed to import SVG path:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Parse SVG path data into commands
+   */
+  private parseSVGPath(pathData: string): Array<{
+    type: string;
+    x?: number;
+    y?: number;
+    x1?: number;
+    y1?: number;
+    x2?: number;
+    y2?: number;
+  }> {
+    const commands: Array<any> = [];
+    const regex = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
+    let match;
+
+    while ((match = regex.exec(pathData)) !== null) {
+      const type = match[1];
+      const args = match[2].trim();
+      
+      if (args.length === 0 && (type === 'Z' || type === 'z')) {
+        commands.push({ type });
+        continue;
+      }
+
+      const values = args.match(/-?[\d.]+/g)?.map(parseFloat) || [];
+      
+      switch (type.toUpperCase()) {
+        case 'M':
+        case 'L':
+          for (let i = 0; i < values.length; i += 2) {
+            commands.push({
+              type: i === 0 ? type : (type === 'M' ? 'L' : 'l'),
+              x: values[i],
+              y: values[i + 1]
+            });
+          }
+          break;
+
+        case 'H':
+          for (const value of values) {
+            commands.push({ type, x: value });
+          }
+          break;
+
+        case 'V':
+          for (const value of values) {
+            commands.push({ type, y: value });
+          }
+          break;
+
+        case 'C':
+          for (let i = 0; i < values.length; i += 6) {
+            commands.push({
+              type,
+              x1: values[i],
+              y1: values[i + 1],
+              x2: values[i + 2],
+              y2: values[i + 3],
+              x: values[i + 4],
+              y: values[i + 5]
+            });
+          }
+          break;
+
+        case 'S':
+          for (let i = 0; i < values.length; i += 4) {
+            commands.push({
+              type,
+              x2: values[i],
+              y2: values[i + 1],
+              x: values[i + 2],
+              y: values[i + 3]
+            });
+          }
+          break;
+
+        case 'Q':
+          for (let i = 0; i < values.length; i += 4) {
+            commands.push({
+              type,
+              x1: values[i],
+              y1: values[i + 1],
+              x: values[i + 2],
+              y: values[i + 3]
+            });
+          }
+          break;
+
+        case 'T':
+          for (let i = 0; i < values.length; i += 2) {
+            commands.push({
+              type,
+              x: values[i],
+              y: values[i + 1]
+            });
+          }
+          break;
+
+        case 'A':
+          for (let i = 0; i < values.length; i += 7) {
+            commands.push({
+              type,
+              rx: values[i],
+              ry: values[i + 1],
+              rotation: values[i + 2],
+              largeArc: values[i + 3],
+              sweep: values[i + 4],
+              x: values[i + 5],
+              y: values[i + 6]
+            });
+          }
+          break;
+      }
+    }
+
+    return commands;
+  }
+
+  /**
+   * Import all paths from an SVG element
+   */
+  importFromSVGElement(svgElement: SVGSVGElement): VectorPath[] {
+    const importedPaths: VectorPath[] = [];
+    const pathElements = svgElement.querySelectorAll('path');
+
+    pathElements.forEach(pathElement => {
+      const d = pathElement.getAttribute('d');
+      if (d) {
+        const path = this.importFromSVG(d, {
+          stroke: pathElement.getAttribute('stroke') || undefined,
+          strokeWidth: parseFloat(pathElement.getAttribute('stroke-width') || '2'),
+          fill: pathElement.getAttribute('fill') || undefined
+        });
+        
+        if (path) {
+          importedPaths.push(path);
+        }
+      }
+    });
+
+    return importedPaths;
+  }
+
   private generateId(): string {
     return `point-${this.idCounter++}`;
   }

@@ -6,27 +6,24 @@
       <div class="section-title">Status</div>
       <div class="info">
         Mode: <span class="state-indicator">{{ mode().toUpperCase() }}</span>
-        <br>
+        <br />
         State: <span class="state-indicator">{{ toolState() }}</span>
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">Actions</div>
-      <button 
-        class="button" 
-        (click)="toggleMode()">
-        {{ mode() === 'pen' ? 'Switch to Edit Mode' : 'Switch to Draw Mode' }}
+      <button class="button" (click)="toggleMode()">
+        {{ getToggleModeText() }}
       </button>
-      <button 
-        class="button secondary" 
-        (click)="clearAllPaths()">
+      <button class="button secondary" (click)="clearAllPaths()">
         Clear All Paths
       </button>
-      <button 
-        class="button secondary" 
+      <button
+        class="button secondary"
         (click)="closeCurrentPath()"
-        [disabled]="!canClosePath()">
+        [disabled]="!canClosePath()"
+      >
         Close Current Path
       </button>
     </div>
@@ -34,13 +31,17 @@
     <div class="section">
       <div class="section-title">Path Statistics</div>
       <div class="info">
-        Paths: <strong>{{ pathCount() }}</strong><br>
+        Paths: <strong>{{ pathCount() }}</strong
+        ><br />
         <ng-container *ngIf="currentPath()">
-          Current points: <strong>{{ currentPath()!.anchorPoints.length }}</strong><br>
-          Path closed: <strong>{{ currentPath()!.closed ? 'Yes' : 'No' }}</strong>
+          Current points:
+          <strong>{{ currentPath()!.anchorPoints.length }}</strong
+          ><br />
+          Path closed:
+          <strong>{{ currentPath()!.closed ? "Yes" : "No" }}</strong>
         </ng-container>
         <ng-container *ngIf="selectedPoints().length > 0">
-          <br>Selected points: <strong>{{ selectedPoints().length }}</strong>
+          <br />Selected points: <strong>{{ selectedPoints().length }}</strong>
         </ng-container>
       </div>
     </div>
@@ -48,19 +49,23 @@
     <div class="section">
       <div class="section-title">Instructions</div>
       <div class="info">
-        <strong>Drawing Mode:</strong><br>
-        • Click to add straight points<br>
-        • Click & drag to create curves<br>
-        • Hold <span class="key">Shift</span> to constrain angles<br>
-        • Hold <span class="key">Alt</span> for independent handles<br>
-        • Click on first point to close path<br>
-        <br>
-        <strong>Edit Mode:</strong><br>
-        • Click & drag anchor points to move<br>
-        • Click & drag handles to adjust curves<br>
-        • Hold <span class="key">Alt</span> while dragging handles for independent control<br>
-        • Double-click on path to add points<br>
-        • Select points and press <span class="key">Delete</span> to remove
+        <strong>Drawing Mode:</strong><br />
+        • Click to add straight points<br />
+        • Click & drag to create curves<br />
+        • Hold <span class="key">Shift</span> to constrain angles<br />
+        • Hold <span class="key">Alt</span> for independent handles<br />
+        • Click on first point to close path<br />
+        <br />
+        <strong>Edit Mode:</strong><br />
+        • Click & drag anchor points to move<br />
+        • Click & drag handles to adjust curves<br />
+        • Hold <span class="key">Alt</span> while dragging handles for
+        independent control<br />
+        • Double-click on path to add points<br />
+        • Select points and press <span class="key">Delete</span> to remove<br />
+        <br />
+        <strong>View Mode:</strong><br />
+        • See paths without any interactive elements
       </div>
     </div>
 
@@ -92,15 +97,23 @@
   </div>
 
   <div class="canvas-container">
-    <svg 
+    <svg
       #canvas
-      width="800" 
+      width="800"
       height="600"
       [style.cursor]="mode() === 'pen' ? 'crosshair' : 'default'"
       (mousedown)="onMouseDown($event)"
       (mousemove)="onMouseMove($event)"
       (mouseup)="onMouseUp($event)"
-      (dblclick)="onDoubleClick($event)">
+      (dblclick)="onDoubleClick($event)"
+    >
+      <path
+        d="M 289.5 96 C 289.5 96, 415.5 180, 340.5 267 C 307.5 305.28, 382.30076800000006 320.34796800000004, 334.90038400000003 407.673984 C 287.5 495, 402.5 522, 402.5 522"
+        stroke="#000000"
+        stroke-width="2"
+        fill="none"
+        data-path-id="point-0"
+      ></path>
     </svg>
   </div>
 </div>

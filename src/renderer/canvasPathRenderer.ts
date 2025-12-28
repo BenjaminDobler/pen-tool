@@ -12,6 +12,7 @@ export class CanvasPathRenderer implements IPathRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private options: Required<RenderOptions>;
+  private pathManager: PathManager | null = null;
   private previewElements: {
     line?: { from: Point; to: Point };
     curve?: { start: Point; control1: Point; control2: Point; end: Point };
@@ -19,7 +20,7 @@ export class CanvasPathRenderer implements IPathRenderer {
     hoverPoint?: Point | null;
   } = {};
 
-  constructor(canvas: HTMLCanvasElement, options: RenderOptions = {}) {
+  constructor(canvas: HTMLCanvasElement, pathManager?: PathManager, options: RenderOptions = {}) {
     this.canvas = canvas;
     const context = canvas.getContext('2d');
     if (!context) {
@@ -36,11 +37,43 @@ export class CanvasPathRenderer implements IPathRenderer {
       anchorPointSize: options.anchorPointSize ?? 6,
       handleColor: options.handleColor ?? '#0066FF',
       previewColor: options.previewColor ?? '#999999',
-      showAllHandles: options.showAllHandles ?? false
+      showAllHandles: options.showAllHandles ?? false,
+      autoImport: options.autoImport ?? true
     };
 
     // Enable high DPI rendering
     this.setupHighDPI();
+
+    // Auto-import existing paths if enabled and SVG data is available
+    if (pathManager && this.options.autoImport) {
+      this.pathManager = pathManager;
+      this.autoImportFromDataAttribute();
+    }
+  }
+
+  /**
+   * Import paths from data-svg-paths attribute if present
+   */
+  private autoImportFromDataAttribute(): void {
+    if (!this.pathManager) return;
+
+    const svgData = this.canvas.getAttribute('data-svg-paths');
+    if (svgData) {
+      try {
+        const pathsData = JSON.parse(svgData) as Array<{ d: string; stroke?: string; strokeWidth?: number; fill?: string }>;
+        pathsData.forEach(pathData => {
+          this.pathManager!.importFromSVG(pathData.d, {
+            stroke: pathData.stroke,
+            strokeWidth: pathData.strokeWidth,
+            fill: pathData.fill
+          });
+        });
+        // Render the imported paths
+        this.renderPaths(this.pathManager);
+      } catch (error) {
+        console.error('Failed to parse data-svg-paths attribute:', error);
+      }
+    }
   }
 
   /**
@@ -325,6 +358,28 @@ export class CanvasPathRenderer implements IPathRenderer {
    */
   clearPreview(): void {
     this.previewElements = {};
+  }
+
+  /**
+   * Clear all interactive elements (preview only for canvas)
+   * Canvas renders anchor points and handles on-demand, not persistently
+   */
+  clearInteractive(): void {
+    this.previewElements = {};
+  }
+
+  /**
+   * Render in view-only mode (paths only, no interactive elements)
+   */
+  renderViewOnly(pathManager: PathManager): void {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    const paths = pathManager.getAllPaths();
+    for (const path of paths) {
+      this.renderPath(path, pathManager);
+    }
+    
+    this.clearInteractive();
   }
 
   /**

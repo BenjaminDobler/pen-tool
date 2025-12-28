@@ -156,6 +156,7 @@
       <div class="section">
         <div class="section-title">Actions</div>
         <button class="button" id="toggleMode">Switch to Edit Mode</button>
+        <button class="button secondary" id="viewMode">View Mode</button>
         <button class="button secondary" id="clearPaths">Clear All Paths</button>
         <button class="button secondary" id="closePath" disabled>Close Current Path</button>
       </div>
@@ -172,7 +173,10 @@
           • Click & drag anchor points to move<br>
           • Click & drag handles to adjust curves<br>
           • Double-click on path to add points<br>
-          • Select points and press Delete to remove
+          • Select points and press Delete to remove<br>
+          <br>
+          <strong>View Mode:</strong><br>
+          • See paths without any interactive elements
         </div>
       </div>
 
@@ -220,11 +224,11 @@
     // Initialize
     const svg = document.getElementById('canvas');
     const pathManager = new PathManager();
-    const renderer = new PathRenderer(svg, {
+    const renderer = new SvgPathRenderer(svg, pathManager);
       showAllHandles: false
     });
 
-    let currentMode = 'pen'; // 'pen' or 'edit'
+    let currentMode = 'pen'; // 'pen', 'edit', or 'view'
     let penTool = null;
     let editMode = null;
 
@@ -360,6 +364,15 @@
       }
       renderer.update(pathManager);
       updateUI();
+    });
+
+    document.getElementById('viewMode').addEventListener('click', () => {
+      currentMode = 'view';
+      document.getElementById('state').textContent = 'VIEW MODE';
+      svg.style.cursor = 'default';
+      penTool.reset();
+      editMode.clearSelection();
+      renderer.renderViewOnly(pathManager);
     });
 
     document.getElementById('clearPaths').addEventListener('click', () => {

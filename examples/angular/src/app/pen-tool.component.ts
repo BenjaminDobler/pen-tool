@@ -11,7 +11,7 @@ import {
   Point
 } from '../../../../src/index';
 
-type ToolMode = 'pen' | 'edit';
+type ToolMode = 'pen' | 'edit' | 'view';
 
 @Component({
   selector: 'app-pen-tool',
@@ -52,8 +52,8 @@ export class PenToolComponent implements AfterViewInit {
     // Initialize path manager
     this.pathManager = new PathManager();
 
-    // Initialize renderer
-    this.renderer = new PathRenderer(svgElement, {
+    // Initialize renderer (will auto-import existing paths from SVG)
+    this.renderer = new PathRenderer(svgElement, this.pathManager, {
       showAllHandles: false
     });
 
@@ -110,6 +110,8 @@ export class PenToolComponent implements AfterViewInit {
 
   onMouseDown(event: MouseEvent) {
     if (!this.penTool || !this.editMode) return;
+    if (this.mode() === 'view') return; // No interaction in view mode
+    
     const pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
@@ -121,6 +123,8 @@ export class PenToolComponent implements AfterViewInit {
 
   onMouseMove(event: MouseEvent) {
     if (!this.penTool || !this.editMode || !this.renderer) return;
+    if (this.mode() === 'view') return; // No interaction in view mode
+    
     const pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
@@ -139,6 +143,8 @@ export class PenToolComponent implements AfterViewInit {
 
   onMouseUp(event: MouseEvent) {
     if (!this.penTool || !this.editMode) return;
+    if (this.mode() === 'view') return; // No interaction in view mode
+    
     const pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
@@ -158,19 +164,41 @@ export class PenToolComponent implements AfterViewInit {
 
   toggleMode() {
     if (!this.renderer || !this.pathManager || !this.penTool) return;
+    
+    // Cycle through modes: pen -> edit -> view -> pen
     if (this.mode() === 'pen') {
       this.mode.set('edit');
       this.toolState.set('EDIT MODE');
       this.renderer.setOptions({ showAllHandles: true });
       this.renderer.clearPreview();
       this.penTool.reset();
+      this.renderer.update(this.pathManager);
+    } else if (this.mode() === 'edit') {
+      this.setViewMode();
+      return;
     } else {
+      // From view mode back to pen
       this.mode.set('pen');
       this.toolState.set('IDLE');
       this.renderer.setOptions({ showAllHandles: false });
+      this.renderer.update(this.pathManager);
     }
-    this.renderer.update(this.pathManager);
     this.updateState();
+  }
+  
+  getToggleModeText(): string {
+    if (this.mode() === 'pen') return 'Switch to Edit Mode';
+    if (this.mode() === 'edit') return 'Switch to View Mode';
+    return 'Switch to Draw Mode';
+  }
+
+  setViewMode() {
+    if (!this.renderer || !this.pathManager || !this.penTool) return;
+    this.mode.set('view');
+    this.toolState.set('VIEW MODE');
+    this.penTool.reset();
+    this.selectedPoints.set([]);
+    this.renderer.renderViewOnly(this.pathManager);
   }
 
   clearAllPaths() {

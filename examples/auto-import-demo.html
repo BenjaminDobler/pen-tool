@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Import Demo - Pent Tool</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #fff;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #2d2d2d;
+      border-radius: 8px;
+    }
+
+    .info p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .info code {
+      background: #1e1e1e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #4ec9b0;
+    }
+
+    svg {
+      display: block;
+      border: 1px solid #444;
+      background: white;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Auto-Import Demo</h1>
+  
+  <div class="info">
+    <p><strong>How it works:</strong></p>
+    <p>1. Add <code>&lt;path&gt;</code> elements to your SVG</p>
+    <p>2. Initialize the library: <code>new SvgPathRenderer(svg, pathManager)</code></p>
+    <p>3. That's it! Existing paths are automatically imported and editable</p>
+    <p></p>
+    <p><strong>Try it:</strong> Drag the anchor points and handles to edit the imported logo</p>
+  </div>
+
+  <!-- SVG with existing paths - these will be automatically imported -->
+  <svg id="canvas" width="800" height="600" viewBox="0 0 800 600">
+    <!-- Simple logo made of paths -->
+    <path 
+      d="M 300 200 L 500 200 L 500 400 L 300 400 Z" 
+      stroke="#0066cc" 
+      stroke-width="4" 
+      fill="rgba(0, 102, 204, 0.1)"
+    />
+    
+    <path 
+      d="M 350 250 C 350 220, 380 220, 380 250 L 380 350 C 380 380, 350 380, 350 350 Z" 
+      stroke="#ff6b6b" 
+      stroke-width="3" 
+      fill="rgba(255, 107, 107, 0.3)"
+    />
+    
+    <path 
+      d="M 420 250 C 420 220, 450 220, 450 250 L 450 350 C 450 380, 420 380, 420 350 Z" 
+      stroke="#4ecdc4" 
+      stroke-width="3" 
+      fill="rgba(78, 205, 196, 0.3)"
+    />
+  </svg>
+
+  <script type="module">
+    import { PathManager, EditMode, SvgPathRenderer } from '../dist/index.esm.js';
+
+    const svg = document.getElementById('canvas');
+    const pathManager = new PathManager();
+    
+    // ✨ This is all you need! Existing paths are automatically imported
+    const renderer = new SvgPathRenderer(svg, pathManager);
+
+    // Enable edit mode so you can modify the imported paths
+    const editMode = new EditMode(svg, pathManager, renderer, {
+      hoverDistance: 10
+    });
+
+    console.log(`Auto-imported ${Object.keys(pathManager.paths).length} paths from SVG`);
+  </script>
+</body>
+</html>

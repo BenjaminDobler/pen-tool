@@ -15,8 +15,9 @@ export class SvgPathRenderer implements IPathRenderer {
   private handlesGroup: SVGGElement;
   private previewGroup: SVGGElement;
   private options: Required<RenderOptions>;
+  private pathManager: PathManager | null = null;
 
-  constructor(svg: SVGSVGElement, options: RenderOptions = {}) {
+  constructor(svg: SVGSVGElement, pathManager?: PathManager, options: RenderOptions = {}) {
     this.svg = svg;
     this.options = {
       strokeColor: options.strokeColor ?? '#000000',
@@ -27,7 +28,8 @@ export class SvgPathRenderer implements IPathRenderer {
       anchorPointSize: options.anchorPointSize ?? 6,
       handleColor: options.handleColor ?? '#0066FF',
       previewColor: options.previewColor ?? '#999999',
-      showAllHandles: options.showAllHandles ?? false
+      showAllHandles: options.showAllHandles ?? false,
+      autoImport: options.autoImport ?? true
     };
 
     // Create layer groups
@@ -35,6 +37,38 @@ export class SvgPathRenderer implements IPathRenderer {
     this.handlesGroup = this.createGroup('handles');
     this.anchorPointsGroup = this.createGroup('anchor-points');
     this.previewGroup = this.createGroup('preview');
+
+    // Auto-import existing paths if enabled
+    if (pathManager && this.options.autoImport) {
+      this.pathManager = pathManager;
+      this.autoImportExistingPaths();
+    }
+  }
+
+  /**
+   * Automatically import existing path elements from the SVG
+   */
+  private autoImportExistingPaths(): void {
+    if (!this.pathManager) return;
+
+    const existingPaths = this.svg.querySelectorAll('path');
+    if (existingPaths.length === 0) return;
+
+    existingPaths.forEach(pathElement => {
+      const d = pathElement.getAttribute('d');
+      if (d) {
+        this.pathManager!.importFromSVG(d, {
+          stroke: pathElement.getAttribute('stroke') || undefined,
+          strokeWidth: parseFloat(pathElement.getAttribute('stroke-width') || '2'),
+          fill: pathElement.getAttribute('fill') || undefined
+        });
+        // Remove the original path element since we'll render our own
+        pathElement.remove();
+      }
+    });
+
+    // Render the imported paths
+    this.renderPaths(this.pathManager);
   }
 
   /**
@@ -221,6 +255,24 @@ export class SvgPathRenderer implements IPathRenderer {
    */
   clearPreview(): void {
     this.previewGroup.innerHTML = '';
+  }
+
+  /**
+   * Clear all interactive elements (anchor points, handles, preview)
+   * Useful for view-only mode
+   */
+  clearInteractive(): void {
+    this.anchorPointsGroup.innerHTML = '';
+    this.handlesGroup.innerHTML = '';
+    this.previewGroup.innerHTML = '';
+  }
+
+  /**
+   * Render in view-only mode (paths only, no interactive elements)
+   */
+  renderViewOnly(pathManager: PathManager): void {
+    this.renderPaths(pathManager);
+    this.clearInteractive();
   }
 
   /**

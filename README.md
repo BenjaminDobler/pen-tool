@@ -4,6 +4,8 @@ A TypeScript library providing a Figma-style pen tool for creating and editing S
 
 ## Features
 
+- ✅ **Auto-Import**: Automatically import and edit existing SVG paths
+- ✅ **View Mode**: Display paths without any interactive control elements
 - ✅ **Drawing Mode**: Click to add straight points, click-and-drag to create curves
 - ✅ **Edit Mode**: Move anchor points, adjust Bezier handles, add/delete points
 - ✅ **Smart Point Addition**: Hover preview indicator shows where new points will be added (configurable distance)
@@ -39,7 +41,36 @@ npm run type-check
 
 ## Quick Start
 
-### SVG Renderer
+### Simplest Example - Auto-Import Existing Paths
+
+```typescript
+import { PathManager, EditMode, SvgPathRenderer } from '@pent-tool/core';
+
+const svg = document.getElementById('canvas'); // Contains existing <path> elements
+const pathManager = new PathManager();
+
+// That's it! Existing paths are automatically imported and editable
+const renderer = new SvgPathRenderer(svg, pathManager);
+const editMode = new EditMode(svg, pathManager, renderer);
+```
+
+### Manual Import
+
+```typescript
+// Import from SVG path data string
+const path = pathManager.importFromSVG('M 0 0 L 100 100 C 120 80, 150 80, 170 100', {
+  stroke: '#ff0000',
+  strokeWidth: 3,
+  fill: 'none'
+});
+
+// Import all paths from an SVG element
+const paths = pathManager.importFromSVGElement(svgElement);
+```
+
+### Creating New Paths with Pen Tool
+
+#### SVG Renderer
 
 ```typescript
 import { PathManager, PenTool, SvgPathRenderer } from '@pent-tool/core';
@@ -47,7 +78,7 @@ import { PathManager, PenTool, SvgPathRenderer } from '@pent-tool/core';
 // Setup
 const svg = document.getElementById('canvas');
 const pathManager = new PathManager();
-const renderer = new SvgPathRenderer(svg);
+const renderer = new SvgPathRenderer(svg, pathManager);
 
 // Create pen tool
 const penTool = new PenTool(pathManager, {}, {
@@ -71,7 +102,7 @@ svg.addEventListener('mouseup', (e) => {
 });
 ```
 
-### Canvas Renderer
+#### Canvas Renderer
 
 ```typescript
 import { PathManager, PenTool, CanvasPathRenderer } from '@pent-tool/core';
@@ -79,7 +110,7 @@ import { PathManager, PenTool, CanvasPathRenderer } from '@pent-tool/core';
 // Setup
 const canvas = document.getElementById('canvas');
 const pathManager = new PathManager();
-const renderer = new CanvasPathRenderer(canvas);
+const renderer = new CanvasPathRenderer(canvas, pathManager);
 
 // Create pen tool (same as SVG)
 const penTool = new PenTool(pathManager, {}, {
@@ -98,9 +129,13 @@ canvas.addEventListener('mousedown', (e) => {
 ## Examples
 
 Run the development server and open:
-- [examples/index.html](examples/index.html) - SVG Renderer demo
+- [examples/auto-import-demo.html](examples/auto-import-demo.html) - **⭐ Simplest example** - Auto-import existing SVG paths
+- [examples/index.html](examples/index.html) - SVG Renderer with pen tool
 - [examples/canvas.html](examples/canvas.html) - Canvas Renderer demo
+- [examples/import.html](examples/import.html) - Advanced import features
 - [examples/angular/](examples/angular/) - Angular 21 example with signals
+
+See [examples/README.md](examples/README.md) for detailed documentation of all examples.
 
 ## Choosing a Renderer
 
@@ -145,10 +180,29 @@ Both renderers implement the same `IPathRenderer` interface, so switching is sea
 
 ```typescript
 const pathManager = new PathManager();
+
+// Create new paths
 const path = pathManager.createPath();
 pathManager.addAnchorPoint(path, { x: 100, y: 100 });
+
+// Export to SVG
 const svgPath = pathManager.toSVGPath(path);
+
+// Import from SVG path data
+const importedPath = pathManager.importFromSVG('M 0 0 L 100 100 C 120 80, 150 80, 170 100', {
+  stroke: '#ff0000',
+  strokeWidth: 3,
+  fill: 'none'
+});
+
+// Import all paths from an SVG element
+const importedPaths = pathManager.importFromSVGElement(svgElement);
 ```
+
+**Supported SVG Commands:**
+- M/m (moveto), L/l (lineto), H/h (horizontal), V/v (vertical)
+- C/c (cubic Bezier), S/s (smooth cubic Bezier)
+- Z/z (close path)
 
 ### PenTool
 
@@ -187,19 +241,29 @@ editMode.onDoubleClick(position); // Add point to path
 ### Renderers
 
 ```typescript
-// SVG Renderer
-const svgRenderer = new SvgPathRenderer(svgElement, options);
+// SVG Renderer - Auto-imports existing paths by default
+const svgRenderer = new SvgPathRenderer(svgElement, pathManager);
+
+// Disable auto-import if needed
+const svgRenderer = new SvgPathRenderer(svgElement, pathManager, {
+  autoImport: false
+});
+
 svgRenderer.update(pathManager);
 svgRenderer.renderPreviewLine(fromPoint, toPoint);
 
-// Canvas Renderer
-const canvasRenderer = new CanvasPathRenderer(canvasElement, options);
+// View-only mode (no interactive elements)
+svgRenderer.renderViewOnly(pathManager);
+
+// Canvas Renderer - Can import from data attribute
+const canvasRenderer = new CanvasPathRenderer(canvasElement, pathManager);
 canvasRenderer.update(pathManager);
 canvasRenderer.renderPreviewLine(fromPoint, toPoint);
+canvasRenderer.renderViewOnly(pathManager);
 
 // Both implement IPathRenderer interface
 // Backward compatibility: PathRenderer is an alias for SvgPathRenderer
-const renderer = new PathRenderer(svgElement, options);
+const renderer = new PathRenderer(svgElement, pathManager);
 ```
 
 ## Keyboard Shortcuts
