@@ -1,4 +1,4 @@
-import { Point, VectorPath, AnchorPoint, HandleMirrorMode } from '../core/types';
+import { Point, VectorPath, AnchorPoint, HandleMirrorMode, SegmentType } from '../core/types';
 import { PathManager, PointUtils } from '../core/path';
 import { HandleManager } from '../core/handles';
 
@@ -158,22 +158,70 @@ export class EditMode {
       // Find which segment the preview point is on
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        const closestPoint = this.findClosestPointOnSegment(segment, this.hoverPreviewPoint);
+        const result = this.findClosestPointOnSegment(segment, this.hoverPreviewPoint);
 
-        if (closestPoint && closestPoint.distance < 1) {
-          // Add point to this segment
+        if (result && result.distance < 1) {
+          const startPoint = segment.startPoint;
+          const endPoint = segment.endPoint;
+
+          // Add the new point at the exact position
           const newPoint = this.pathManager.insertAnchorPoint(
             path,
             i + 1,
             this.hoverPreviewPoint
           );
 
-          // Create default handles
-          HandleManager.createDefaultHandles(
-            newPoint,
-            segment.startPoint.position,
-            segment.endPoint.position
-          );
+          // Subdivide the curve properly
+          if (segment.type === SegmentType.CubicBezier && segment.controlPoint1 && segment.controlPoint2) {
+            // Subdivide the Bezier curve at parameter t
+            const subdivided = PathManager.subdivideCubicBezier(
+              startPoint.position,
+              segment.controlPoint1,
+              segment.controlPoint2,
+              endPoint.position,
+              result.t
+            );
+
+            // Update handles for the start point (first curve)
+            if (startPoint.handleOut) {
+              // Convert absolute control point back to relative handle
+              startPoint.handleOut.position = {
+                x: subdivided.curve1.cp1.x - startPoint.position.x,
+                y: subdivided.curve1.cp1.y - startPoint.position.y
+              };
+            }
+
+            // Set handles for the new point (connection between curves)
+            newPoint.handleIn = {
+              position: {
+                x: subdivided.curve1.cp2.x - newPoint.position.x,
+                y: subdivided.curve1.cp2.y - newPoint.position.y
+              },
+              visible: true
+            };
+            newPoint.handleOut = {
+              position: {
+                x: subdivided.curve2.cp1.x - newPoint.position.x,
+                y: subdivided.curve2.cp1.y - newPoint.position.y
+              },
+              visible: true
+            };
+
+            // Update handles for the end point (second curve)
+            if (endPoint.handleIn) {
+              endPoint.handleIn.position = {
+                x: subdivided.curve2.cp2.x - endPoint.position.x,
+                y: subdivided.curve2.cp2.y - endPoint.position.y
+              };
+            }
+          } else {
+            // For line segments, create simple handles
+            HandleManager.createDefaultHandles(
+              newPoint,
+              startPoint.position,
+              endPoint.position
+            );
+          }
 
           this.selectPoint(newPoint);
           this.notifyPathModified(path);
@@ -295,12 +343,13 @@ export class EditMode {
   private findClosestPointOnSegment(
     segment: any,
     position: Point
-  ): { position: Point; distance: number } | null {
+  ): { position: Point; distance: number; t: number } | null {
     let minDistance = Infinity;
     let closestPoint: Point | null = null;
+    let closestT = 0;
 
     // Sample points along the segment
-    const samples = 20;
+    const samples = 50; // Increased samples for better accuracy
     for (let i = 0; i <= samples; i++) {
       const t = i / samples;
       let point: Point;
@@ -324,10 +373,11 @@ export class EditMode {
       if (distance < minDistance) {
         minDistance = distance;
         closestPoint = point;
+        closestT = t;
       }
     }
 
-    return closestPoint ? { position: closestPoint, distance: minDistance } : null;
+    return closestPoint ? { position: closestPoint, distance: minDistance, t: closestT } : null;
   }
 
   /**

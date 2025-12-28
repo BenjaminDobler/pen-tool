@@ -314,6 +314,56 @@ export class PathManager {
     };
   }
 
+  /**
+   * Linear interpolation between two points
+   */
+  static lerp(p0: Point, p1: Point, t: number): Point {
+    return {
+      x: p0.x + t * (p1.x - p0.x),
+      y: p0.y + t * (p1.y - p0.y)
+    };
+  }
+
+  /**
+   * Subdivide a cubic Bezier curve at parameter t
+   * Returns the control points for both resulting curves
+   */
+  static subdivideCubicBezier(
+    p0: Point,
+    cp1: Point,
+    cp2: Point,
+    p3: Point,
+    t: number
+  ): {
+    curve1: { p0: Point; cp1: Point; cp2: Point; p3: Point };
+    curve2: { p0: Point; cp1: Point; cp2: Point; p3: Point };
+  } {
+    // De Casteljau's algorithm for subdivision
+    const p01 = PathManager.lerp(p0, cp1, t);
+    const p12 = PathManager.lerp(cp1, cp2, t);
+    const p23 = PathManager.lerp(cp2, p3, t);
+
+    const p012 = PathManager.lerp(p01, p12, t);
+    const p123 = PathManager.lerp(p12, p23, t);
+
+    const p0123 = PathManager.lerp(p012, p123, t);
+
+    return {
+      curve1: {
+        p0: p0,
+        cp1: p01,
+        cp2: p012,
+        p3: p0123
+      },
+      curve2: {
+        p0: p0123,
+        cp1: p123,
+        cp2: p23,
+        p3: p3
+      }
+    };
+  }
+
   private generateId(): string {
     return `point-${this.idCounter++}`;
   }
