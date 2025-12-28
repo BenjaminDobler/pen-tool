@@ -9,5 +9,10 @@ export * from './core/handles';
 export * from './tools/penTool';
 export * from './tools/editMode';
 
-// Renderer
+// Renderer interface and implementations
+export * from './renderer/IPathRenderer';
 export * from './renderer/pathRenderer';
+export * from './renderer/canvasPathRenderer';
+
+// Backward compatibility: export SvgPathRenderer as PathRenderer
+export { SvgPathRenderer as PathRenderer } from './renderer/pathRenderer';

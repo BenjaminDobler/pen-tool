@@ -1,32 +1,14 @@
 import { VectorPath, AnchorPoint, Point } from '../core/types';
 import { PathManager } from '../core/path';
 import { HandleManager } from '../core/handles';
+import { IPathRenderer, RenderOptions } from './IPathRenderer';
 
-export interface RenderOptions {
-  /** Stroke color for paths */
-  strokeColor?: string;
-  /** Stroke width for paths */
-  strokeWidth?: number;
-  /** Fill color for closed paths */
-  fillColor?: string;
-  /** Color for selected elements */
-  selectionColor?: string;
-  /** Color for anchor points */
-  anchorPointColor?: string;
-  /** Size of anchor points */
-  anchorPointSize?: number;
-  /** Color for handles */
-  handleColor?: string;
-  /** Color for preview elements */
-  previewColor?: string;
-  /** Show handles for all points or only selected */
-  showAllHandles?: boolean;
-}
+export type { RenderOptions } from './IPathRenderer';
 
 /**
  * SVG renderer for paths, anchor points, handles, and UI feedback
  */
-export class PathRenderer {
+export class SvgPathRenderer implements IPathRenderer {
   private svg: SVGSVGElement;
   private pathsGroup: SVGGElement;
   private anchorPointsGroup: SVGGElement;
