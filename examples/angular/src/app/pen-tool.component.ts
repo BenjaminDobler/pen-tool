@@ -87,6 +87,9 @@ export class PenToolComponent implements AfterViewInit {
         this.selectedPoints.set(points);
         this.renderer.setOptions({ showAllHandles: points.length > 0 });
         this.renderer.update(this.pathManager);
+      },
+      onHoverPreview: (point: Point | null, path: VectorPath | null) => {
+        this.renderer.renderHoverPreviewPoint(point);
       }
     });
 

@@ -259,6 +259,9 @@
         onSelectionChange: (points) => {
           renderer.setOptions({ showAllHandles: points.length > 0 });
           renderer.update(pathManager);
+        },
+        onHoverPreview: (point, path) => {
+          renderer.renderHoverPreviewPoint(point);
         }
       });
     }

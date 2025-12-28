@@ -2,11 +2,18 @@ import { Point, VectorPath, AnchorPoint, HandleMirrorMode } from '../core/types'
 import { PathManager, PointUtils } from '../core/path';
 import { HandleManager } from '../core/handles';
 
+export interface EditModeOptions {
+  /** Distance threshold for path hit detection (default: 5) */
+  hoverDistance?: number;
+}
+
 export interface EditModeCallbacks {
   /** Called when selection changes */
   onSelectionChange?: (points: AnchorPoint[]) => void;
   /** Called when path is modified */
   onPathModified?: (path: VectorPath) => void;
+  /** Called when hovering near a path with the preview point */
+  onHoverPreview?: (point: Point | null, path: VectorPath | null) => void;
 }
 
 /**
@@ -16,6 +23,7 @@ export class EditMode {
   private pathManager: PathManager;
   private selectedPoints: Set<string> = new Set();
   private callbacks: EditModeCallbacks;
+  private options: Required<EditModeOptions>;
 
   // Interaction state
   private isDragging = false;
@@ -27,9 +35,20 @@ export class EditMode {
   private isAltPressed = false;
   private originalMirrorMode: HandleMirrorMode | null = null;
 
-  constructor(pathManager: PathManager, callbacks: EditModeCallbacks = {}) {
+  // Hover preview state
+  private hoverPreviewPoint: Point | null = null;
+  private hoverPreviewPath: VectorPath | null = null;
+
+  constructor(
+    pathManager: PathManager,
+    callbacks: EditModeCallbacks = {},
+    options: EditModeOptions = {}
+  ) {
     this.pathManager = pathManager;
     this.callbacks = callbacks;
+    this.options = {
+      hoverDistance: options.hoverDistance ?? 5
+    };
   }
 
   /**
@@ -74,7 +93,13 @@ export class EditMode {
    * Handle mouse move in edit mode
    */
   onMouseMove(position: Point): void {
-    if (!this.isDragging || !this.dragTarget || !this.dragStartPos) {
+    // Update hover preview when not dragging
+    if (!this.isDragging) {
+      this.updateHoverPreview(position);
+      return;
+    }
+
+    if (!this.dragTarget || !this.dragStartPos) {
       return;
     }
 
@@ -124,22 +149,23 @@ export class EditMode {
   /**
    * Handle double-click to add point to path
    */
-  onDoubleClick(position: Point): boolean {
-    const allPaths = this.pathManager.getAllPaths();
-
-    for (const path of allPaths) {
+  onDoubleClick(_position: Point): boolean {
+    // If we have a hover preview, use that point
+    if (this.hoverPreviewPoint && this.hoverPreviewPath) {
+      const path = this.hoverPreviewPath;
       const segments = this.pathManager.getSegments(path);
 
+      // Find which segment the preview point is on
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        const closestPoint = this.findClosestPointOnSegment(segment, position);
+        const closestPoint = this.findClosestPointOnSegment(segment, this.hoverPreviewPoint);
 
-        if (closestPoint && closestPoint.distance < 10) {
+        if (closestPoint && closestPoint.distance < 1) {
           // Add point to this segment
           const newPoint = this.pathManager.insertAnchorPoint(
             path,
             i + 1,
-            closestPoint.position
+            this.hoverPreviewPoint
           );
 
           // Create default handles
@@ -151,6 +177,7 @@ export class EditMode {
 
           this.selectPoint(newPoint);
           this.notifyPathModified(path);
+          this.clearHoverPreview();
           return true;
         }
       }
@@ -348,5 +375,78 @@ export class EditMode {
     }
 
     return selected;
+  }
+
+  /**
+   * Update hover preview when mouse is near a path
+   */
+  private updateHoverPreview(position: Point): void {
+    const allPaths = this.pathManager.getAllPaths();
+    let closestPoint: Point | null = null;
+    let closestPath: VectorPath | null = null;
+    let minDistance = Infinity;
+
+    // Find the closest point on any path
+    for (const path of allPaths) {
+      const segments = this.pathManager.getSegments(path);
+
+      for (const segment of segments) {
+        const result = this.findClosestPointOnSegment(segment, position);
+        if (result && result.distance < minDistance && result.distance <= this.options.hoverDistance) {
+          closestPoint = result.position;
+          closestPath = path;
+          minDistance = result.distance;
+        }
+      }
+    }
+
+    // Update preview if changed
+    if (closestPoint && closestPath) {
+      const changed = !this.hoverPreviewPoint || 
+        this.hoverPreviewPoint.x !== closestPoint.x || 
+        this.hoverPreviewPoint.y !== closestPoint.y ||
+        this.hoverPreviewPath !== closestPath;
+      
+      if (changed) {
+        this.hoverPreviewPoint = closestPoint;
+        this.hoverPreviewPath = closestPath;
+        this.notifyHoverPreview();
+      }
+    } else if (this.hoverPreviewPoint) {
+      // Clear preview if no longer near a path
+      this.clearHoverPreview();
+    }
+  }
+
+  /**
+   * Clear hover preview
+   */
+  private clearHoverPreview(): void {
+    this.hoverPreviewPoint = null;
+    this.hoverPreviewPath = null;
+    this.notifyHoverPreview();
+  }
+
+  /**
+   * Notify hover preview change
+   */
+  private notifyHoverPreview(): void {
+    if (this.callbacks.onHoverPreview) {
+      this.callbacks.onHoverPreview(this.hoverPreviewPoint, this.hoverPreviewPath);
+    }
+  }
+
+  /**
+   * Set hover distance threshold
+   */
+  setHoverDistance(distance: number): void {
+    this.options.hoverDistance = distance;
+  }
+
+  /**
+   * Get current hover distance
+   */
+  getHoverDistance(): number {
+    return this.options.hoverDistance;
   }
 }

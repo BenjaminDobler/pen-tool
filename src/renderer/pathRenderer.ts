@@ -273,6 +273,39 @@ export class PathRenderer {
   }
 
   /**
+   * Render hover preview point for adding to paths
+   */
+  renderHoverPreviewPoint(point: Point | null): void {
+    const previewId = 'hover-preview-point';
+    const existing = this.svg.getElementById(previewId);
+
+    if (!point) {
+      if (existing) {
+        existing.remove();
+      }
+      return;
+    }
+
+    if (!existing) {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('id', previewId);
+      circle.setAttribute('r', '4');
+      circle.setAttribute('fill', this.options.selectionColor);
+      circle.setAttribute('fill-opacity', '0.5');
+      circle.setAttribute('stroke', this.options.selectionColor);
+      circle.setAttribute('stroke-width', '1.5');
+      circle.setAttribute('pointer-events', 'none');
+      this.previewGroup.appendChild(circle);
+    }
+
+    const preview = this.svg.getElementById(previewId);
+    if (preview) {
+      preview.setAttribute('cx', point.x.toString());
+      preview.setAttribute('cy', point.y.toString());
+    }
+  }
+
+  /**
    * Update the entire view
    */
   update(pathManager: PathManager): void {

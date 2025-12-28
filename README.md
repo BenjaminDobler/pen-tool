@@ -6,13 +6,14 @@ A TypeScript library for creating Figma-style pen tool with Bezier curves and SV
 
 - ✅ **Drawing Mode**: Click to add straight points, click-and-drag to create curves
 - ✅ **Edit Mode**: Move anchor points, adjust Bezier handles, add/delete points
+- ✅ **Smart Point Addition**: Hover preview indicator shows where new points will be added (configurable distance)
 - ✅ **Bezier Curves**: Full cubic Bezier support with three handle mirroring modes
   - Mirrored: Both angle and length stay synchronized
   - Angle-locked: Same angle, independent lengths
   - Independent: Complete handle independence
 - ✅ **SVG-based**: Clean SVG path generation and rendering
-- ✅ **Keyboard Modifiers**: Shift for angle snapping, Enter/Escape for path operations
-- ✅ **Interactive UI**: Real-time visual feedback with handles, preview lines, and selection
+- ✅ **Keyboard Modifiers**: Shift for angle snapping, Alt for independent handles, Enter/Escape for path operations
+- ✅ **Interactive UI**: Real-time visual feedback with handles, preview lines, hover indicators, and selection
 
 ## Installation
 
@@ -110,9 +111,26 @@ penTool.onMouseUp(position);
 ### EditMode
 
 ```typescript
-const editMode = new EditMode(pathManager, callbacks);
+const editMode = new EditMode(pathManager, callbacks, options);
+
+// Configure hover distance (default: 5px)
+editMode.setHoverDistance(10);
+
+// Mouse interactions
 editMode.onMouseDown(position);
+editMode.onMouseMove(position); // Shows hover preview near paths
 editMode.onDoubleClick(position); // Add point to path
+
+// Callbacks
+{
+  onPathModified: (path) => { /* path was modified */ },
+  onSelectionChange: (points) => { /* selection changed */ },
+  onHoverPreview: (point, path) => { 
+    // point is null when not hovering near a path
+    // Shows preview indicator for adding points
+    renderer.renderHoverPreviewPoint(point);
+  }
+}
 ```
 
 ### PathRenderer
