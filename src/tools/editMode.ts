@@ -1,0 +1,352 @@
+import { Point, VectorPath, AnchorPoint, HandleMirrorMode } from '../core/types';
+import { PathManager, PointUtils } from '../core/path';
+import { HandleManager } from '../core/handles';
+
+export interface EditModeCallbacks {
+  /** Called when selection changes */
+  onSelectionChange?: (points: AnchorPoint[]) => void;
+  /** Called when path is modified */
+  onPathModified?: (path: VectorPath) => void;
+}
+
+/**
+ * Edit mode for manipulating existing paths
+ */
+export class EditMode {
+  private pathManager: PathManager;
+  private selectedPoints: Set<string> = new Set();
+  private callbacks: EditModeCallbacks;
+
+  // Interaction state
+  private isDragging = false;
+  private dragType: 'point' | 'handle-in' | 'handle-out' | null = null;
+  private dragTarget: { path: VectorPath; point: AnchorPoint } | null = null;
+  private dragStartPos: Point | null = null;
+  private initialPointPos: Point | null = null;
+  private isShiftPressed = false;
+  private isAltPressed = false;
+  private originalMirrorMode: HandleMirrorMode | null = null;
+
+  constructor(pathManager: PathManager, callbacks: EditModeCallbacks = {}) {
+    this.pathManager = pathManager;
+    this.callbacks = callbacks;
+  }
+
+  /**
+   * Handle mouse down in edit mode
+   */
+  onMouseDown(position: Point): boolean {
+    // Check all paths for hit detection
+    const allPaths = this.pathManager.getAllPaths();
+
+    // First, check for handle hits (they have priority)
+    for (const path of allPaths) {
+      for (const point of path.anchorPoints) {
+        const handleHit = HandleManager.isNearHandle(point, position, 8);
+        if (handleHit) {
+          this.startDraggingHandle(path, point, handleHit.isOut);
+          this.dragStartPos = position;
+          return true;
+        }
+      }
+    }
+
+    // Then check for anchor point hits
+    for (const path of allPaths) {
+      const hit = this.pathManager.findClosestPointOnPath(path, position, 8);
+      if (hit) {
+        this.startDraggingPoint(path, hit.anchorPoint);
+        this.dragStartPos = position;
+        this.initialPointPos = { ...hit.anchorPoint.position };
+        return true;
+      }
+    }
+
+    // No hit - clear selection unless shift is pressed
+    if (!this.isShiftPressed) {
+      this.clearSelection();
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle mouse move in edit mode
+   */
+  onMouseMove(position: Point): void {
+    if (!this.isDragging || !this.dragTarget || !this.dragStartPos) {
+      return;
+    }
+
+    const { path, point } = this.dragTarget;
+
+    if (this.dragType === 'point' && this.initialPointPos) {
+      // Move the anchor point
+      const delta = PointUtils.subtract(position, this.dragStartPos);
+      const newPosition = PointUtils.add(this.initialPointPos, delta);
+      this.pathManager.moveAnchorPoint(path, point.id, newPosition);
+      this.notifyPathModified(path);
+    } else if (this.dragType === 'handle-in' || this.dragType === 'handle-out') {
+      // Move the handle
+      const isOut = this.dragType === 'handle-out';
+      
+      // Temporarily set to independent mode if Alt is pressed
+      if (this.isAltPressed && this.originalMirrorMode === null) {
+        this.originalMirrorMode = point.mirrorMode;
+        point.mirrorMode = HandleMirrorMode.Independent;
+      } else if (!this.isAltPressed && this.originalMirrorMode !== null) {
+        point.mirrorMode = this.originalMirrorMode;
+        this.originalMirrorMode = null;
+      }
+      
+      HandleManager.updateHandle(point, isOut, position);
+      this.notifyPathModified(path);
+    }
+  }
+
+  /**
+   * Handle mouse up in edit mode
+   */
+  onMouseUp(_position: Point): void {
+    // Restore original mirror mode if Alt was pressed
+    if (this.originalMirrorMode !== null && this.dragTarget) {
+      this.dragTarget.point.mirrorMode = this.originalMirrorMode;
+      this.originalMirrorMode = null;
+    }
+    
+    this.isDragging = false;
+    this.dragType = null;
+    this.dragTarget = null;
+    this.dragStartPos = null;
+    this.initialPointPos = null;
+  }
+
+  /**
+   * Handle double-click to add point to path
+   */
+  onDoubleClick(position: Point): boolean {
+    const allPaths = this.pathManager.getAllPaths();
+
+    for (const path of allPaths) {
+      const segments = this.pathManager.getSegments(path);
+
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        const closestPoint = this.findClosestPointOnSegment(segment, position);
+
+        if (closestPoint && closestPoint.distance < 10) {
+          // Add point to this segment
+          const newPoint = this.pathManager.insertAnchorPoint(
+            path,
+            i + 1,
+            closestPoint.position
+          );
+
+          // Create default handles
+          HandleManager.createDefaultHandles(
+            newPoint,
+            segment.startPoint.position,
+            segment.endPoint.position
+          );
+
+          this.selectPoint(newPoint);
+          this.notifyPathModified(path);
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle keyboard events
+   */
+  onKeyDown(key: string): void {
+    if (key === 'Shift') {
+      this.isShiftPressed = true;
+    } else if (key === 'Alt') {
+      this.isAltPressed = true;
+    } else if (key === 'Delete' || key === 'Backspace') {
+      this.deleteSelectedPoints();
+    }
+  }
+
+  /**
+   * Handle keyboard up events
+   */
+  onKeyUp(key: string): void {
+    if (key === 'Shift') {
+      this.isShiftPressed = false;
+    } else if (key === 'Alt') {
+      this.isAltPressed = false;
+      // Restore original mirror mode if we were dragging
+      if (this.originalMirrorMode !== null && this.dragTarget) {
+        this.dragTarget.point.mirrorMode = this.originalMirrorMode;
+        this.originalMirrorMode = null;
+      }
+    }
+  }
+
+  /**
+   * Delete selected points
+   */
+  private deleteSelectedPoints(): void {
+    const allPaths = this.pathManager.getAllPaths();
+
+    for (const path of allPaths) {
+      const pointsToDelete = path.anchorPoints.filter(p =>
+        this.selectedPoints.has(p.id)
+      );
+
+      for (const point of pointsToDelete) {
+        this.pathManager.removeAnchorPoint(path, point.id);
+        this.selectedPoints.delete(point.id);
+      }
+
+      if (pointsToDelete.length > 0) {
+        this.notifyPathModified(path);
+      }
+    }
+
+    this.notifySelectionChange();
+  }
+
+  /**
+   * Start dragging a point
+   */
+  private startDraggingPoint(path: VectorPath, point: AnchorPoint): void {
+    this.isDragging = true;
+    this.dragType = 'point';
+    this.dragTarget = { path, point };
+
+    if (!this.isShiftPressed) {
+      this.clearSelection();
+    }
+    this.selectPoint(point);
+  }
+
+  /**
+   * Start dragging a handle
+   */
+  private startDraggingHandle(path: VectorPath, point: AnchorPoint, isOut: boolean): void {
+    this.isDragging = true;
+    this.dragType = isOut ? 'handle-out' : 'handle-in';
+    this.dragTarget = { path, point };
+  }
+
+  /**
+   * Select a point
+   */
+  private selectPoint(point: AnchorPoint): void {
+    point.selected = true;
+    this.selectedPoints.add(point.id);
+    this.notifySelectionChange();
+  }
+
+  /**
+   * Clear selection
+   */
+  private clearSelection(): void {
+    const allPaths = this.pathManager.getAllPaths();
+
+    for (const path of allPaths) {
+      for (const point of path.anchorPoints) {
+        if (point.selected) {
+          point.selected = false;
+        }
+      }
+    }
+
+    this.selectedPoints.clear();
+    this.notifySelectionChange();
+  }
+
+  /**
+   * Find closest point on a segment
+   */
+  private findClosestPointOnSegment(
+    segment: any,
+    position: Point
+  ): { position: Point; distance: number } | null {
+    let minDistance = Infinity;
+    let closestPoint: Point | null = null;
+
+    // Sample points along the segment
+    const samples = 20;
+    for (let i = 0; i <= samples; i++) {
+      const t = i / samples;
+      let point: Point;
+
+      if (segment.type === 'line') {
+        point = {
+          x: (1 - t) * segment.startPoint.position.x + t * segment.endPoint.position.x,
+          y: (1 - t) * segment.startPoint.position.y + t * segment.endPoint.position.y
+        };
+      } else {
+        point = PathManager.cubicBezierPoint(
+          segment.startPoint.position,
+          segment.controlPoint1,
+          segment.controlPoint2,
+          segment.endPoint.position,
+          t
+        );
+      }
+
+      const distance = PointUtils.distance(position, point);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestPoint = point;
+      }
+    }
+
+    return closestPoint ? { position: closestPoint, distance: minDistance } : null;
+  }
+
+  /**
+   * Notify selection change
+   */
+  private notifySelectionChange(): void {
+    if (this.callbacks.onSelectionChange) {
+      const selectedPointsList: AnchorPoint[] = [];
+      const allPaths = this.pathManager.getAllPaths();
+
+      for (const path of allPaths) {
+        for (const point of path.anchorPoints) {
+          if (this.selectedPoints.has(point.id)) {
+            selectedPointsList.push(point);
+          }
+        }
+      }
+
+      this.callbacks.onSelectionChange(selectedPointsList);
+    }
+  }
+
+  /**
+   * Notify path modified
+   */
+  private notifyPathModified(path: VectorPath): void {
+    if (this.callbacks.onPathModified) {
+      this.callbacks.onPathModified(path);
+    }
+  }
+
+  /**
+   * Get selected points
+   */
+  getSelectedPoints(): AnchorPoint[] {
+    const selected: AnchorPoint[] = [];
+    const allPaths = this.pathManager.getAllPaths();
+
+    for (const path of allPaths) {
+      for (const point of path.anchorPoints) {
+        if (this.selectedPoints.has(point.id)) {
+          selected.push(point);
+        }
+      }
+    }
+
+    return selected;
+  }
+}
