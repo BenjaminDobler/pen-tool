@@ -16,6 +16,7 @@ export class SvgPathRenderer implements IPathRenderer {
   private previewGroup: SVGGElement;
   private options: Required<RenderOptions>;
   private pathManager: PathManager | null = null;
+  private pathVersions: Map<string, number> = new Map(); // Track path versions for change detection
 
   constructor(svg: SVGSVGElement, pathManager?: PathManager, options: RenderOptions = {}) {
     this.svg = svg;
@@ -72,37 +73,92 @@ export class SvgPathRenderer implements IPathRenderer {
   }
 
   /**
-   * Render all paths
+   * Render all paths (optimized to only update changed paths)
    */
   renderPaths(pathManager: PathManager): void {
-    // Clear existing paths
-    this.pathsGroup.innerHTML = '';
-
     const paths = pathManager.getAllPaths();
+    const currentPathIds = new Set(paths.map(p => p.id));
+    
+    // Remove paths that no longer exist
+    const existingElements = this.pathsGroup.querySelectorAll('[data-path-id]');
+    existingElements.forEach(element => {
+      const pathId = element.getAttribute('data-path-id');
+      if (pathId && !currentPathIds.has(pathId)) {
+        element.remove();
+        this.pathVersions.delete(pathId);
+      }
+    });
+
+    // Update or create paths
     for (const path of paths) {
-      this.renderPath(path, pathManager);
+      const pathVersion = this.getPathVersion(path);
+      const existingVersion = this.pathVersions.get(path.id);
+      
+      if (existingVersion !== pathVersion) {
+        // Path has changed or is new - update it
+        this.updateOrCreatePath(path, pathManager);
+        this.pathVersions.set(path.id, pathVersion);
+      }
     }
   }
 
   /**
-   * Render a single path
+   * Calculate a version number for a path based on its content
    */
-  renderPath(path: VectorPath, pathManager: PathManager): void {
+  private getPathVersion(path: VectorPath): number {
+    let hash = 0;
+    
+    // Include basic path properties
+    hash ^= path.closed ? 1 : 0;
+    hash ^= path.anchorPoints.length << 1;
+    
+    // Include anchor point positions and handle states
+    for (let i = 0; i < path.anchorPoints.length; i++) {
+      const point = path.anchorPoints[i];
+      hash ^= (point.position.x * 31 + point.position.y) * (i + 1);
+      
+      if (point.handleIn?.visible) {
+        hash ^= (point.handleIn.position.x * 17 + point.handleIn.position.y) * (i + 1000);
+      }
+      if (point.handleOut?.visible) {
+        hash ^= (point.handleOut.position.x * 19 + point.handleOut.position.y) * (i + 2000);
+      }
+    }
+    
+    // Include styling
+    if (path.stroke) hash ^= path.stroke.length * 13;
+    if (path.fill) hash ^= path.fill.length * 23;
+    hash ^= path.strokeWidth * 29;
+    hash ^= path.selected ? 4096 : 0;
+    
+    return hash;
+  }
+
+  /**
+   * Update an existing path element or create a new one
+   */
+  private updateOrCreatePath(path: VectorPath, pathManager: PathManager): void {
     const pathData = pathManager.toSVGPath(path);
     if (!pathData) return;
 
-    const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let pathElement = this.pathsGroup.querySelector(`[data-path-id="${path.id}"]`) as SVGPathElement;
+    
+    if (!pathElement) {
+      // Create new path element
+      pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      pathElement.setAttribute('data-path-id', path.id);
+      this.pathsGroup.appendChild(pathElement);
+    }
+    
+    // Update attributes
     pathElement.setAttribute('d', pathData);
     pathElement.setAttribute('stroke', path.stroke || this.options.strokeColor);
     pathElement.setAttribute('stroke-width', path.strokeWidth.toString());
     pathElement.setAttribute('fill', path.fill || this.options.fillColor);
-    pathElement.setAttribute('data-path-id', path.id);
-
+    
     if (path.selected) {
       pathElement.setAttribute('stroke', this.options.selectionColor);
     }
-
-    this.pathsGroup.appendChild(pathElement);
   }
 
   /**
