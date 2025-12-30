@@ -29,5 +29,5 @@ jobs:
       - name: Check build artifacts
         run: |
           test -f dist/index.esm.js || exit 1
-          test -f dist/index.js || exit 1
+          test -f dist/index.umd.js || exit 1
           test -f dist/index.d.ts || exit 1
