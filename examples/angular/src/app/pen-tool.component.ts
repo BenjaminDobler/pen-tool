@@ -64,12 +64,12 @@ export class PenToolComponent implements AfterViewInit {
   private editMode!: EditMode;
 
   constructor() {
-    // Setup keyboard listeners
-    this.setupKeyboardListeners();
+    // Keyboard listeners will be set up after tools are initialized
   }
 
   ngAfterViewInit() {
     this.initializeTools();
+    this.setupKeyboardListeners();
   }
 
   private initializeTools() {
@@ -138,9 +138,18 @@ export class PenToolComponent implements AfterViewInit {
     if (!this.penTool || !this.editMode) return;
     if (this.mode() === 'view') return; // No interaction in view mode
     
-    const pos = this.getMousePosition(event);
+    let pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
+      // Apply angle snapping if Shift is pressed and we're drawing a line (not starting a curve)
+      const path = this.penTool.getCurrentPath();
+      if (path && path.anchorPoints.length > 0 && this.penTool.isShiftKeyPressed()) {
+        const lastPoint = path.anchorPoints[path.anchorPoints.length - 1];
+        // Only snap if the last point doesn't have a visible handleOut (i.e., we're drawing a line, not a curve)
+        if (!lastPoint.handleOut?.visible) {
+          pos = this.penTool.snapPositionToAngle(pos, lastPoint.position);
+        }
+      }
       this.penTool.onMouseDown(pos);
     } else {
       this.editMode.onMouseDown(pos);
@@ -151,7 +160,7 @@ export class PenToolComponent implements AfterViewInit {
     if (!this.penTool || !this.editMode || !this.renderer) return;
     if (this.mode() === 'view') return; // No interaction in view mode
     
-    const pos = this.getMousePosition(event);
+    let pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
       this.penTool.onMouseMove(pos);
@@ -161,6 +170,12 @@ export class PenToolComponent implements AfterViewInit {
       if (path && path.anchorPoints.length > 0 && this.penTool.getState() === PenToolState.Drawing) {
         const lastPoint = path.anchorPoints[path.anchorPoints.length - 1];
         
+        // Apply angle snapping to preview position if Shift is pressed
+        let previewPos = pos;
+        if (this.penTool.isShiftKeyPressed() && !lastPoint.handleOut?.visible) {
+          previewPos = this.penTool.snapPositionToAngle(pos, lastPoint.position);
+        }
+        
         // If last point has handleOut, show curve preview
         if (lastPoint.handleOut?.visible) {
           const handleOutPos = {
@@ -168,9 +183,9 @@ export class PenToolComponent implements AfterViewInit {
             y: lastPoint.position.y + lastPoint.handleOut.position.y
           };
           // Use mouse position as control point 2 (curve comes straight into cursor)
-          this.renderer.renderPreviewCurve(lastPoint.position, handleOutPos, pos, pos);
+          this.renderer.renderPreviewCurve(lastPoint.position, handleOutPos, previewPos, previewPos);
         } else {
-          this.renderer.renderPreviewLine(lastPoint.position, pos);
+          this.renderer.renderPreviewLine(lastPoint.position, previewPos);
         }
       }
     } else {
@@ -182,9 +197,18 @@ export class PenToolComponent implements AfterViewInit {
     if (!this.penTool || !this.editMode) return;
     if (this.mode() === 'view') return; // No interaction in view mode
     
-    const pos = this.getMousePosition(event);
+    let pos = this.getMousePosition(event);
     
     if (this.mode() === 'pen') {
+      // Apply angle snapping if Shift is pressed and we're drawing a line (not creating a curve)
+      const path = this.penTool.getCurrentPath();
+      if (path && path.anchorPoints.length > 0 && this.penTool.isShiftKeyPressed()) {
+        const lastPoint = path.anchorPoints[path.anchorPoints.length - 1];
+        // Only snap if the last point doesn't have a visible handleOut (i.e., we're drawing a line, not a curve)
+        if (!lastPoint.handleOut?.visible) {
+          pos = this.penTool.snapPositionToAngle(pos, lastPoint.position);
+        }
+      }
       this.penTool.onMouseUp(pos);
     } else {
       this.editMode.onMouseUp(pos);
@@ -281,17 +305,31 @@ export class PenToolComponent implements AfterViewInit {
   private setupKeyboardListeners() {
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', (e) => {
+        if (this.mode() === 'view') return; // No keyboard input in view mode
+        
+        // Prevent default for modifier keys during drawing
+        if (e.key === 'Shift' || e.key === 'Alt') {
+          e.preventDefault();
+        }
+        
         if (this.mode() === 'pen') {
           this.penTool.onKeyDown(e.key);
-        } else {
+        } else if (this.mode() === 'edit') {
           this.editMode.onKeyDown(e.key);
         }
       });
 
       window.addEventListener('keyup', (e) => {
+        if (this.mode() === 'view') return; // No keyboard input in view mode
+        
+        // Prevent default for modifier keys during drawing
+        if (e.key === 'Shift' || e.key === 'Alt') {
+          e.preventDefault();
+        }
+        
         if (this.mode() === 'pen') {
           this.penTool.onKeyUp(e.key);
-        } else {
+        } else if (this.mode() === 'edit') {
           this.editMode.onKeyUp(e.key);
         }
       });

@@ -66,6 +66,22 @@ export class PenTool {
   }
 
   /**
+   * Check if Shift key is currently pressed
+   */
+  isShiftKeyPressed(): boolean {
+    return this.isShiftPressed;
+  }
+
+  /**
+   * Snap a position to the nearest angle relative to a reference point
+   */
+  snapPositionToAngle(position: Point, referencePoint: Point): Point {
+    const delta = PointUtils.subtract(position, referencePoint);
+    const snapped = this.snapToAngle(delta);
+    return PointUtils.add(referencePoint, snapped);
+  }
+
+  /**
    * Handle mouse down event
    */
   onMouseDown(position: Point): void {
