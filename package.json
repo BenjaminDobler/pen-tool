@@ -1,6 +1,6 @@
 {
   "name": "@richapps/pen-tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A TypeScript library for creating Figma-style pen tool with Bezier curves and SVG path manipulation",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
