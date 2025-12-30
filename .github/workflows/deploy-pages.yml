@@ -44,7 +44,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'examples/angular/dist/pen-tool-angular/browser'
+          path: 'examples/angular/dist/pen-tool-angular'
 
   deploy:
     environment:
