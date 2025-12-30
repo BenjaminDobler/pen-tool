@@ -31,12 +31,12 @@
   "author": "Benjamin Dobler",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BenjaminDobler/pent-tool.git"
+    "url": "https://github.com/BenjaminDobler/pen-tool.git"
   },
   "bugs": {
-    "url": "https://github.com/BenjaminDobler/pent-tool/issues"
+    "url": "https://github.com/BenjaminDobler/pen-tool/issues"
   },
-  "homepage": "https://github.com/BenjaminDobler/pent-tool#readme",
+  "homepage": "https://github.com/BenjaminDobler/pen-tool#readme",
   "license": "MIT",
   "devDependencies": {
     "typescript": "^5.3.3",
